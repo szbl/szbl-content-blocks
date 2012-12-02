@@ -33,10 +33,11 @@ class Szbl_Content_Blocks
 <style type="text/css">
 .wp-menu-image { overflow: hidden; }
 #adminmenu #menu-posts-szbl-content-block .wp-menu-image {
-	background: url(<?php echo plugins_url( 'images/szbl-content-block-icon.png', __FILE__ ); ?>) no-repeat 6px -17px !important;
+	background: url('<?php echo plugins_url( 'images/szbl-content-block-icon.png', __FILE__ ); ?>') no-repeat 6px -17px !important;
 	background-position: 6px -17px !important;
 }
-#adminmenu #menu-posts-szbl-content-block:hover .wp-menu-image, #menu-posts-szbl-content-block.wp-has-current-submenu .wp-menu-image {
+#adminmenu #menu-posts-szbl-content-block:hover .wp-menu-image,
+#adminmenu #menu-posts-szbl-content-block.wp-has-current-submenu .wp-menu-image {
 	background-position: 6px 7px !important;
 }
 </style>
