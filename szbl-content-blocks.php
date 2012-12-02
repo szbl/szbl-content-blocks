@@ -75,9 +75,8 @@ class Szbl_Content_Blocks
 	public static function get_content_blocks( $args, $return_single = false )
 	{
 		$args = shortcode_atts( array(
-			'posts_per_page' => get_query_var( 'posts_per_page' ),
-			'post_status' => 'publish',
 			'posts_per_page' => get_query_var( 'posts_per_page' ) ? get_query_var( 'posts_per_page' ) : -1,
+			'post_status' => 'publish',
 			'post_parent' => null,
 			'meta_query' => array(),
 			'tax_query' => array(),
