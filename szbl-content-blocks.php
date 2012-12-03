@@ -21,10 +21,17 @@ class Szbl_Content_Blocks
 	private function __construct()
 	{
 		add_action( 'init', array( $this, 'register_post_types' ) );
+		
 		if ( is_admin() )
 		{
 			add_action( 'admin_head', array( $this, 'admin_head' ) );
 		}
+		
+		add_shortcode( 'szbl_content_block', array( $this, 'shortcode_content_block' ) );
+		add_shortcode( 'szbl_content_blocks', array( $this, 'shortcode_content_blocks' ) );
+		
+		add_filter( 'szbl-content-block-content', 'wptexturize', 100 );
+		add_filter( 'szbl-content-block-content', 'wpautop', 101 );
 	}
 	
 	public function admin_head()
@@ -83,16 +90,22 @@ class Szbl_Content_Blocks
 			'tax_query' => array(),
 			'szbl_content_tags' => array(),
 			'szbl_content_tag_field' => array(),
+			'post__in' => null,
 			'orderby' => 'menu_order',
 			'order' => 'asc'
 		), $args );
+		
+		if ( is_null( $args['post__in'] ) || !is_array( $args['post__in'] ) )
+		{
+			unset( $args['post__in'] );
+		}
 		
 		if ( isset( $args['szbl_content_tags'] ) && taxonomy_exists( 'szbl-content-tag' ) )
 		{
 			$tags = $args['szbl_content_tags'];
 			
 			if ( !is_array( $tags ) )
-				$tags = array( $tags );
+				$tags = array_map( 'trim', explode( ',', $tags ) );
 			
 			if ( !isset( $args['tax_query'] ) || !is_array( $args['tax_query'] ) )
 				$args['tax_query'] = array();
@@ -129,6 +142,73 @@ class Szbl_Content_Blocks
 			$get_args = $dropdown_args;
 		$posts = self::get_content_blocks( $get_args );
 		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'dropdown.php';
+	}
+	
+	public function shortcode_content_block( $atts, $content = '' )
+	{
+		extract(shortcode_atts(array(
+			'post_id' => null,
+			'title' => 'true',
+			'title_tag' => 'h3',
+			'szbl_content_tags' => ''
+		), $atts));
+		
+		if ( $title != 'true' )
+			$title = false;
+		else
+			$title = true;
+		
+		$args = array(
+			'posts_per_page' => 1,
+			'szbl_content_tags' => $szbl_content_tags,
+		);
+		if ( !is_null( $post_id ) )
+			$args['post_id'] = (int) $post_id;
+		
+		$block = self::get_content_blocks( $args, true );
+		
+		if ( !$block->ID )
+			return;
+		
+		ob_start();
+		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'shortcode-content-block.php';
+		$output = ob_get_contents();
+		ob_end_clean();
+		return $output;
+	}
+	
+	public function shortcode_content_blocks( $atts, $content = '' )
+	{
+		extract(shortcode_atts(array(
+			'szbl_content_tags' => '',
+			'post_ids' => '',
+			'title' => 'true',
+			'title_tag' => 'h3',
+			'orderby' => 'menu_order',
+			'order' => 'asc',
+			'limit' => -1
+		), $atts));
+		
+		$args = array(
+			'posts_per_page' => (int) $limit,
+			'szbl_content_tags' => $szbl_content_tags,
+			'orderby' => $orderby,
+			'order' => $order,
+		);
+		
+		if ( !empty( $post_ids ) )
+			$args['post__in'] = explode( ',', $post_id );
+		
+		$blocks = self::get_content_blocks( $args );
+		
+		if ( count( $blocks ) <= 0 )
+			return;
+		
+		ob_start();
+		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'shortcode-content-blocks.php';
+		$output = ob_get_contents();
+		ob_end_clean();
+		return $output;
 	}
 	
 }
