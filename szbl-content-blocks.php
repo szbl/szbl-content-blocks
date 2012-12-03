@@ -113,14 +113,15 @@ class Szbl_Content_Blocks
 			$args['tax_query'][] = array(
 				'taxonomy' => 'szbl-content-tag',
 				'field' => isset( $args['szbl_content_tag_field'] ) && $args['szbl_content_tag_field'] == 'id' ? 'id' : 'slug',
-				'terms' => $tags
+				'terms' => $tags,
+				'operator' => 'AND'
 			);
 		}
 		
 		$args['post_type'] = self::POST_TYPE_SLUG;
 		
 		apply_filters( 'szbl_pre_get_content_blocks_args', $args );
-		
+
 		$posts = get_posts( $args );
 		
 		if ( $return_single )
@@ -150,7 +151,7 @@ class Szbl_Content_Blocks
 			'post_id' => null,
 			'title' => 'true',
 			'title_tag' => 'h3',
-			'szbl_content_tags' => ''
+			'tags' => ''
 		), $atts));
 		
 		if ( $title != 'true' )
@@ -160,7 +161,7 @@ class Szbl_Content_Blocks
 		
 		$args = array(
 			'posts_per_page' => 1,
-			'szbl_content_tags' => $szbl_content_tags,
+			'szbl_content_tags' => $tags,
 		);
 		if ( !is_null( $post_id ) )
 			$args['post_id'] = (int) $post_id;
@@ -180,7 +181,7 @@ class Szbl_Content_Blocks
 	public function shortcode_content_blocks( $atts, $content = '' )
 	{
 		extract(shortcode_atts(array(
-			'szbl_content_tags' => '',
+			'tags' => '',
 			'post_ids' => '',
 			'title' => 'true',
 			'title_tag' => 'h3',
@@ -191,7 +192,7 @@ class Szbl_Content_Blocks
 		
 		$args = array(
 			'posts_per_page' => (int) $limit,
-			'szbl_content_tags' => $szbl_content_tags,
+			'szbl_content_tags' => $tags,
 			'orderby' => $orderby,
 			'order' => $order,
 		);
