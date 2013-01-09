@@ -2,9 +2,9 @@
 	<?php
 		if ( $title )
 			echo '<' . $title_tag . '>' 
-				 . apply_filters( 'szbl-content-block-title', $block->post_title ) 
+				 . apply_filters( 'szbl_content_block_title', $block->post_title ) 
 				 . '</' . $title_tag . '>';
 		
-		echo apply_filters( 'szbl-content-block-content', $block->post_content );
+		echo apply_filters( 'szbl_content_blocks_content', $block->post_content );
 	?>
 </article>

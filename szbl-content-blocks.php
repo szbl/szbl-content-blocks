@@ -8,78 +8,143 @@ Description: Basic content blocks using custom post types with wrapper functions
 
 class Szbl_Content_Blocks
 {
-	const POST_TYPE_SLUG = 'szbl-content-block';
 	protected static $instance;
 	
-	public static function getInstance()
+	const POST_TYPE_SLUG = 'szbl-content-block';
+	
+	public static function init()
 	{
 		if ( !isset( self::$instance ) )
 			self::$instance = new Szbl_Content_Blocks();
 		return self::$instance;
 	}
 	
-	private function __construct()
+	public function __call( $method, $args )
 	{
-		add_action( 'init', array( $this, 'register_post_types' ) );
+		if ( strtolower( $method ) == 'getinstance' || strtolower( $method ) == 'get_instance' )
+			return self::init();
+	}
+	
+	public function __construct()
+	{
+		add_action( 'init', array( $this, 'register' ), 1983 );
 		
 		if ( is_admin() )
 		{
-			add_action( 'admin_head', array( $this, 'admin_head' ) );
+			add_action( 'admin_head', array( $this, 'admin_head' ), 1983 );
 		}
 		
 		add_shortcode( 'szbl_content_block', array( $this, 'shortcode_content_block' ) );
 		add_shortcode( 'szbl_content_blocks', array( $this, 'shortcode_content_blocks' ) );
 		
-		add_filter( 'szbl-content-block-content', 'wptexturize', 100 );
-		add_filter( 'szbl-content-block-content', 'wpautop', 101 );
+		add_filter( 'szbl_content_blocks_content', 'wptexturize', 10 );
+		add_filter( 'szbl_content_blocks_content', 'wpautop', 10 );
+	}
+	
+	public function sanitize_view( $path = false )
+	{
+		$return = dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views'. DIRECTORY_SEPARATOR;
+		
+		if ( $path )
+		{
+			$path = trim( $path, '\\/' );
+			if ( substr( $path, -4 ) !== '.php' )
+				$path .= '.php';
+			$return .= $path;
+		}
+		if ( !file_exists( $return ) )
+			return false;
+		
+		return $return;
+	}
+	
+	private function render( $path, $output = false, $local_vars = null )
+	{
+		$path = $this->sanitize_view( $path );
+		
+		if ( !$path )
+			return false;
+		
+		if ( $output )
+			include $path;
+		
+		if ( is_array( $local_vars ) && count( $local_vars ) > 0 )
+			extract( $local_vars );
+		
+		ob_start();
+		include $path;
+		$output = ob_get_contents();
+		ob_end_clean();
+		
+		return $output;
+	}
+	
+	public function get_post_type_slug()
+	{
+		return apply_filters( 'szbl_content_blocks_slug', self::POST_TYPE_SLUG );
 	}
 	
 	public function admin_head()
 	{
-?>
-<style type="text/css">
-.wp-menu-image { overflow: hidden; }
-#adminmenu #menu-posts-szbl-content-block .wp-menu-image {
-	background: url('<?php echo plugins_url( 'images/szbl-content-block-icon.png', __FILE__ ); ?>') no-repeat 6px -17px !important;
-	background-position: 6px -17px !important;
-}
-#adminmenu #menu-posts-szbl-content-block:hover .wp-menu-image,
-#adminmenu #menu-posts-szbl-content-block.wp-has-current-submenu .wp-menu-image {
-	background-position: 6px 7px !important;
-}
-</style>
-<?php
+		$this->file = __FILE__;
+		echo $this->render( 'admin-css.php' );
 	}
 	
-	public function register_post_types()
+	public function get_labels()
 	{
-		global $_wp_theme_features;
-		if ( !$_wp_theme_features['post-thumbnails'] )
+		$labels = array(
+			'name' => __( 'Content Blocks' ),
+			'singular_name' => __( 'Content Block' ),
+			'add_new' => __( 'Add New' ),
+			'add_new_item' => __( 'Add New Content Block' ),
+			'edit_item' => __( 'Edit Content Block' ),
+			'mew_item' => __( 'New Content Block' ),
+			'view_item' => __( 'View Content Block' ),
+			'search_items' => __( 'Search Content Blocks' ),
+			'not_found' => __( 'No content blocks found.' ),
+			'not_found_in_trash' => __( 'No content blocks found in trash.' ),
+		);
+		return apply_filters( 'szbl_content_blocks-setting-labels', $labels );
+	}
+	
+	public function register()
+	{
+		if ( apply_filters( 'szbl_content_block-setting-post_thumbnails', true ) )
 		{
 			add_theme_support( 'post-thumbnails' );
+			
+			// use this action to add your image sizes
+			do_action( 'szbl_content_blocks-setting-thumbnail_sizes' );
 		}
 		
-		register_post_type( self::POST_TYPE_SLUG, array(
-			'labels' => array(
-				'name' => 'Content Blocks',
-				'singular_name' => 'Content Block',
-				'add_new' => 'Add New',
-				'add_new_item' => 'Add New Content Block',
-				'edit_item' => 'Edit Content Block',
-				'mew_item' => 'New Content Block',
-				'view_item' => 'View Content Block',
-				'search_items' => 'Search Content Blocks',
-				'not_found' => 'No content blocks found.',
-				'not_found_in_trash' => 'No content blocks found in trash.',
-			),
-			'public' => false,
-			'show_in_menu' => true,
-			'show_ui' => true,
-			'hierarchical' => true,
-			'supports' => array( 'title', 'editor', 'page-attributes', 'thumbnail', 'custom-fields' )
+		register_post_type( $this->get_post_type_slug(), array(
+			'labels' => $this->get_labels(),
+			'description' => apply_filters( 'szbl_content_blocks-setting-description', 'Manage and extend re-usable locations with address, phone, website, email and more fields attached to the location name, description and image.' ),
+			'public' => apply_filters( 'szbl_content_blocks-setting-public', true ),
+			'publicly_queryable' => apply_filters( 'szbl_content_blocks-setting-publicly_queryable', false ),
+			'exclude_from_search' => apply_filters( 'szbl_content_blocks-setting-exclude_from_search', true),
+			'show_iu' => apply_filters( 'szbl_content_blocks-setting-show_ui', true ),
+			'show_in_menu' => apply_filters( 'szbl_content_blocks-setting-show_in_menu', true ),
+			'show_in_nav_menus' => apply_filters( 'szbl_content_blocks-setting-show_in_nav_menus', false ),
+			'show_in_admin_bar' => apply_filters( 'szbl_content_blocks-setting-show_in_admin_bar', true ),
+			'menu_position' => apply_filters( 'szbl_content_blocks-setting-menu_position', 10 ),
+			'menu_icon' => apply_filters( 'szbl_content_blocks-setting-menu_icon', null ),
+			'capability_type' => apply_filters( 'szbl_content_blocks-setting-capability_type', 'post' ),
+			'capabilities' => apply_filters( 'szbl_content_blocks-setting-capabilities', array() ),
+			'hierarchical' => apply_filters( 'szbl_content_blocks-setting-hierarchical', true ),
+			'can_export' => apply_filters( 'szbl_content_blocks-setting-hierarchical', true ),
+			'supports' => apply_filters( 'szbl_content_blocks-setting-supports', array( 'title', 'editor', 'thumbnail', 'excerpt', 'page-attributes', 'custom-fields' ) ),
+			'register_meta_box_cb' => apply_filters( 'szbl_content_blocks-setting-register_meta_box_cb', array( $this, 'add_meta_boxes' ) ),
+			'has_archive' => apply_filters( 'szbl_content_blocks-setting-has_archive', false ),
+			'rewrite' => apply_filters( 'szbl_content_blocks-setting-rewrite', array() )
 		));
 	}
 
+	public function add_meta_boxes()
+	{
+		do_action( 'szbl_content_blocks_add_meta_boxes' );
+	}
+	
 	public static function get_content_blocks( $args, $return_single = false )
 	{
 		$args = shortcode_atts( array(
@@ -142,7 +207,7 @@ class Szbl_Content_Blocks
 		if ( !$get_args )
 			$get_args = $dropdown_args;
 		$posts = self::get_content_blocks( $get_args );
-		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'dropdown.php';
+		echo $this->render( 'dropdown.php' );
 	}
 	
 	public function shortcode_content_block( $atts, $content = '' )
@@ -171,11 +236,7 @@ class Szbl_Content_Blocks
 		if ( !$block->ID )
 			return;
 		
-		ob_start();
-		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'shortcode-content-block.php';
-		$output = ob_get_contents();
-		ob_end_clean();
-		return $output;
+		return $this->render( 'shortcode-content-block.php', false, array( 'block' => $block ) );
 	}
 	
 	public function shortcode_content_blocks( $atts, $content = '' )
@@ -200,20 +261,16 @@ class Szbl_Content_Blocks
 		if ( !empty( $post_ids ) )
 			$args['post__in'] = explode( ',', $post_id );
 		
-		$blocks = self::get_content_blocks( $args );
+		$this->blocks = self::get_content_blocks( $args );
 		
-		if ( count( $blocks ) <= 0 )
+		if ( count( $this->blocks ) <= 0 )
 			return;
 		
-		ob_start();
-		include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'shortcode-content-blocks.php';
-		$output = ob_get_contents();
-		ob_end_clean();
-		return $output;
+		return $this->render( 'shortcode-content-blocks.php' );
 	}
 	
 }
-Szbl_Content_Blocks::getInstance();
+Szbl_Content_Blocks::init();
 
 function szbl_get_content_block( $args = array() )
 {
