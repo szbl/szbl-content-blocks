@@ -1,9 +1,11 @@
 <?php
 /*
 Plugin Name: Content Blocks
-Author: Sizeable Interactive
-Author URI: http://sizeableinteractive.com/labs/
+Author: Sizeable Labs
+Author URI: http://www.sizeablelabs.com
 Description: Basic content blocks using custom post types with wrapper functions to pull these blocks for inclustion in any general theme/plugin output. Great for home page callouts, WYSIWYG HTML widgets and any form of theme integration.
+Version: 1.0
+License: GPL2
 */
 
 class Szbl_Content_Blocks
@@ -19,26 +21,25 @@ class Szbl_Content_Blocks
 		return self::$instance;
 	}
 	
-	public function __call( $method, $args )
+	public static function getInstance()
 	{
-		if ( strtolower( $method ) == 'getinstance' || strtolower( $method ) == 'get_instance' )
-			return self::init();
+		return self::init();
 	}
 	
 	public function __construct()
 	{
-		add_action( 'init', array( $this, 'register' ), 1983 );
+		add_action( 'init', array( $this, 'register' ) );
 		
 		if ( is_admin() )
 		{
-			add_action( 'admin_head', array( $this, 'admin_head' ), 1983 );
+			add_action( 'admin_head', array( $this, 'admin_head' ) );
 		}
 		
 		add_shortcode( 'szbl_content_block', array( $this, 'shortcode_content_block' ) );
 		add_shortcode( 'szbl_content_blocks', array( $this, 'shortcode_content_blocks' ) );
 		
-		add_filter( 'szbl_content_blocks_content', 'wptexturize', 10 );
-		add_filter( 'szbl_content_blocks_content', 'wpautop', 10 );
+		add_filter( 'szbl_content_blocks_content', 'wptexturize' );
+		add_filter( 'szbl_content_blocks_content', 'wpautop' );
 	}
 	
 	public function sanitize_view( $path = false )
@@ -145,7 +146,34 @@ class Szbl_Content_Blocks
 		do_action( 'szbl_content_blocks_add_meta_boxes' );
 	}
 	
-	public static function get_content_blocks( $args, $return_single = false )
+	/* 
+	 * Merges a set of terms (single, comma-separated or array)
+	 * into a tax_query array
+	 */
+	private function merge_tax_query( $terms, $tax_query, $taxonomy = 'szbl-content-tag', $term_field = 'slug', $operator = 'AND' )
+	{
+		if ( !is_array( $terms ) )
+			$terms = explode( ',', $terms );
+		
+		$terms = array_map( 'trim', $terms );
+		
+		if ( !is_array( $tax_query ) )
+			$tax_query = array();
+		
+		$tax_query[] = array(
+			'taxonomy' => $taxonomy,
+			'field' => $term_field,
+			'terms' => $terms,
+			'operator' => $operator
+		);
+		
+		return apply_filters( 'szbl_content_blocks-merge_tax_query', $tax_query );
+	}
+	
+	/*
+	 * Supports one or more Content Tags via non-core variable named "szbl_content_tags"
+	 */
+	public function get_content_blocks( $args, $return_single = false )
 	{
 		$args = shortcode_atts( array(
 			'posts_per_page' => get_query_var( 'posts_per_page' ) ? get_query_var( 'posts_per_page' ) : -1,
@@ -153,49 +181,38 @@ class Szbl_Content_Blocks
 			'post_parent' => null,
 			'meta_query' => array(),
 			'tax_query' => array(),
-			'szbl_content_tags' => array(),
-			'szbl_content_tag_field' => array(),
-			'post__in' => null,
+			'post__in' => '',
 			'orderby' => 'menu_order',
-			'order' => 'asc'
+			'order' => 'asc',
+			'szbl_content_tags' => '',
+			'szbl_content_tags_field' => 'slug',
+			'szbl_content_tags_operator' => 'AND'
 		), $args );
-		
-		if ( is_null( $args['post__in'] ) || !is_array( $args['post__in'] ) )
-		{
-			unset( $args['post__in'] );
-		}
-		
-		if ( isset( $args['szbl_content_tags'] ) && taxonomy_exists( 'szbl-content-tag' ) )
-		{
-			$tags = $args['szbl_content_tags'];
-			
-			if ( !is_array( $tags ) )
-				$tags = array_map( 'trim', explode( ',', $tags ) );
-			
-			if ( !isset( $args['tax_query'] ) || !is_array( $args['tax_query'] ) )
-				$args['tax_query'] = array();
-				
-			$args['tax_query'][] = array(
-				'taxonomy' => 'szbl-content-tag',
-				'field' => isset( $args['szbl_content_tag_field'] ) && $args['szbl_content_tag_field'] == 'id' ? 'id' : 'slug',
-				'terms' => $tags,
-				'operator' => 'AND'
-			);
-		}
-		
 		$args['post_type'] = self::POST_TYPE_SLUG;
 		
-		apply_filters( 'szbl_pre_get_content_blocks_args', $args );
-
+		if ( empty( $args['post__in'] ) )
+			unset( $args['post__in'] );
+		elseif ( !is_array( $args['post__in'] ) )
+			$args['post__in'] = explode( ',', $args['post__in'] );
+		
+		if ( !empty( $args['szbl_content_tags'] ) )
+			$args['tax_query'] = $this->merge_tax_query( $args['szbl_content_tags'], $args['tax_query'], 'szbl-content-tag', $args['szbl_content_tags_field'], $args['szbl_content_tags_operator'] );
+		
+		unset( $args['szbl_content_tags'] );
+		unset( $args['szbl_content_tags_field'] );
+		unset( $args['szbl_content_tags_operator'] );
+		
+		apply_filters( 'szbl_content_blocks-get_content_blocks_args', $args );
+		
 		$posts = get_posts( $args );
 		
 		if ( $return_single )
-			return apply_filters( 'szbl_get_content_blocks_post', $posts[0] );
+			return apply_filters( 'szbl_get_content_blocks-get_post', $posts[0] );
 		else
-			return apply_filters( 'szbl_get_content_blocks_posts', $posts );
+			return apply_filters( 'szbl_get_content_blocks-get_posts', $posts );
 	}
 	
-	public static function get_content_blocks_dropdown( $dropdown_args, $get_args = array() )
+	public function get_content_blocks_dropdown( $dropdown_args, $get_args = array() )
 	{
 		extract( shortcode_atts( array(
 			'selected' => '',
@@ -204,9 +221,12 @@ class Szbl_Content_Blocks
 			'name'=> 'szbl-content-blocks-dropdown',
 			'id' => 'szbl-content-blocks-dropdown'
 		), $dropdown_args ) );
+		
 		if ( !$get_args )
 			$get_args = $dropdown_args;
-		$posts = self::get_content_blocks( $get_args );
+		
+		$posts = $this->get_content_blocks( $get_args );
+		
 		echo $this->render( 'dropdown.php' );
 	}
 	
@@ -214,29 +234,55 @@ class Szbl_Content_Blocks
 	{
 		extract(shortcode_atts(array(
 			'post_id' => null,
+			'post_parent' => '',
+			'orderby' => 'menu_order',
+			'order' => 'asc',
 			'title' => 'true',
+			'image' => 'true',
+			'image_size' => 'thumbnail',
+			'image_class' => '',
 			'title_tag' => 'h3',
 			'tags' => ''
 		), $atts));
 		
-		if ( $title != 'true' )
+		if ( strtolower( $title ) != 'true' )
 			$title = false;
 		else
 			$title = true;
 		
+		if ( strtolower( $image ) != 'true' )
+			$image = false;
+		else
+			$image = true;
+		
 		$args = array(
+			'orderby' => $orderby,
+			'order' => $order,
+			'post_parent' => $post_parent,
 			'posts_per_page' => 1,
 			'szbl_content_tags' => $tags,
 		);
-		if ( !is_null( $post_id ) )
-			$args['post_id'] = (int) $post_id;
 		
-		$block = self::get_content_blocks( $args, true );
+		if ( !empty( $post_id ) )
+		{
+			$args['post__in'] = (int) $post_id;
+			// post_id overrides tags
+			unset( $args['szbl_content_tags'] );
+		}
 		
+		$block = $this->get_content_blocks( $args, true );
+
 		if ( !$block->ID )
 			return;
 		
-		return $this->render( 'shortcode-content-block.php', false, array( 'block' => $block ) );
+		return $this->render( 'shortcode-content-block.php', false, array(
+			'block' => $block,
+			'title' => $title,
+			'image' => $image,
+			'image_size' => $image_size,
+			'image_class' => $image_class,
+			'title_tag' => $title_tag
+		) );
 	}
 	
 	public function shortcode_content_blocks( $atts, $content = '' )
@@ -244,29 +290,56 @@ class Szbl_Content_Blocks
 		extract(shortcode_atts(array(
 			'tags' => '',
 			'post_ids' => '',
-			'title' => 'true',
-			'title_tag' => 'h3',
+			'post_parent' => '',
 			'orderby' => 'menu_order',
 			'order' => 'asc',
-			'limit' => -1
+			'title' => 'true',
+			'image' => 'true',
+			'image_size' => 'thumbnail',
+			'image_class' => '',
+			'title_tag' => 'h3',
+			'tags' => '',
+			'posts_per_page' => -1
 		), $atts));
 		
+		if ( strtolower( $title ) != 'true' )
+			$title = false;
+		else
+			$title = true;
+		
+		if ( strtolower( $image ) != 'true' )
+			$image = false;
+		else
+			$image = true;
+		
 		$args = array(
-			'posts_per_page' => (int) $limit,
+			'posts_per_page' => (int) $posts_per_page,
 			'szbl_content_tags' => $tags,
+			'post_parent' => $post_parent,
 			'orderby' => $orderby,
 			'order' => $order,
 		);
 		
-		if ( !empty( $post_ids ) )
-			$args['post__in'] = explode( ',', $post_id );
+		if ( !empty( $post_id ) )
+		{
+			$args['post__in'] = (int) $post_id;
+			// post_id overrides tags
+			unset( $args['szbl_content_tags'] );
+		}
 		
-		$this->blocks = self::get_content_blocks( $args );
+		$blocks = $this->get_content_blocks( $args );
 		
-		if ( count( $this->blocks ) <= 0 )
+		if ( count( $blocks ) <= 0 )
 			return;
 		
-		return $this->render( 'shortcode-content-blocks.php' );
+		return $this->render( 'shortcode-content-blocks.php', false, array(
+			'blocks' => $blocks,
+			'title' => $title,
+			'image' => $image,
+			'image_size' => $image_size,
+			'image_class' => $image_class,
+			'title_tag' => $title_tag
+		));
 	}
 	
 }
@@ -275,15 +348,15 @@ Szbl_Content_Blocks::init();
 function szbl_get_content_block( $args = array() )
 {
 	$args['posts_per_page'] = 1;
-	return Szbl_Content_Blocks::get_content_blocks( $args, true );
+	return Szbl_Content_Blocks::getInstance()->get_content_blocks( $args, true );
 }
 
 function szbl_get_content_blocks( $args = array() )
 {
-	return Szbl_Content_Blocks::get_content_blocks( $args );
+	return Szbl_Content_Blocks::getInstance()->get_content_blocks( $args );
 }
 
 function szbl_get_content_blocks_dropdown( $dropdown_args, $get_args = array() )
 {
-	return Szbl_Content_Blocks::get_content_blocks_dropdown($dropdown_args, $get_args );
+	return Szbl_Content_Blocks::getInstance()->get_content_blocks_dropdown($dropdown_args, $get_args );
 }
