@@ -66,11 +66,11 @@ class Szbl_Content_Blocks
 		if ( !$path )
 			return false;
 		
-		if ( $output )
-			include $path;
-		
 		if ( is_array( $local_vars ) && count( $local_vars ) > 0 )
 			extract( $local_vars );
+		
+		if ( $output )
+			include $path;
 		
 		ob_start();
 		include $path;
@@ -118,27 +118,27 @@ class Szbl_Content_Blocks
 			do_action( 'szbl_content_blocks-setting-thumbnail_sizes' );
 		}
 		
-		register_post_type( $this->get_post_type_slug(), array(
+		$args = array(
 			'labels' => $this->get_labels(),
-			'description' => apply_filters( 'szbl_content_blocks-setting-description', 'Manage and extend re-usable locations with address, phone, website, email and more fields attached to the location name, description and image.' ),
-			'public' => apply_filters( 'szbl_content_blocks-setting-public', true ),
-			'publicly_queryable' => apply_filters( 'szbl_content_blocks-setting-publicly_queryable', false ),
-			'exclude_from_search' => apply_filters( 'szbl_content_blocks-setting-exclude_from_search', true),
-			'show_iu' => apply_filters( 'szbl_content_blocks-setting-show_ui', true ),
-			'show_in_menu' => apply_filters( 'szbl_content_blocks-setting-show_in_menu', true ),
-			'show_in_nav_menus' => apply_filters( 'szbl_content_blocks-setting-show_in_nav_menus', false ),
-			'show_in_admin_bar' => apply_filters( 'szbl_content_blocks-setting-show_in_admin_bar', true ),
-			'menu_position' => apply_filters( 'szbl_content_blocks-setting-menu_position', 10 ),
-			'menu_icon' => apply_filters( 'szbl_content_blocks-setting-menu_icon', null ),
-			'capability_type' => apply_filters( 'szbl_content_blocks-setting-capability_type', 'post' ),
-			'capabilities' => apply_filters( 'szbl_content_blocks-setting-capabilities', array() ),
-			'hierarchical' => apply_filters( 'szbl_content_blocks-setting-hierarchical', true ),
-			'can_export' => apply_filters( 'szbl_content_blocks-setting-hierarchical', true ),
-			'supports' => apply_filters( 'szbl_content_blocks-setting-supports', array( 'title', 'editor', 'thumbnail', 'excerpt', 'page-attributes', 'custom-fields' ) ),
-			'register_meta_box_cb' => apply_filters( 'szbl_content_blocks-setting-register_meta_box_cb', array( $this, 'add_meta_boxes' ) ),
-			'has_archive' => apply_filters( 'szbl_content_blocks-setting-has_archive', false ),
-			'rewrite' => apply_filters( 'szbl_content_blocks-setting-rewrite', array() )
-		));
+			'description' => 'Manage and extend re-usable locations with address, phone, website, email and more fields attached to the location name, description and image.',
+			'public' => true,
+			'publicly_queryable' => false,
+			'exclude_from_search' => true,
+			'show_iu' => true,
+			'show_in_menu' => true,
+			'show_in_nav_menus' => false,
+			'show_in_admin_bar' => true,
+			'menu_position' => 10,
+			'capability_type' => 'post',
+			'hierarchical' => true,
+			'can_export' => true,
+			'supports' => array( 'title', 'editor', 'thumbnail', 'excerpt', 'page-attributes', 'custom-fields' ),
+			'register_meta_box_cb' => array( $this, 'add_meta_boxes' ),
+			'has_archive' => false,
+			'rewrite' => array()
+		);
+		
+		register_post_type( $this->get_post_type_slug(), apply_filters( 'szbl_content_blocks-args', $args ) );
 	}
 
 	public function add_meta_boxes()
@@ -188,6 +188,7 @@ class Szbl_Content_Blocks
 			'szbl_content_tags_field' => 'slug',
 			'szbl_content_tags_operator' => 'AND'
 		), $args );
+		
 		$args['post_type'] = self::POST_TYPE_SLUG;
 		
 		if ( empty( $args['post__in'] ) )
@@ -214,20 +215,20 @@ class Szbl_Content_Blocks
 	
 	public function get_content_blocks_dropdown( $dropdown_args, $get_args = array() )
 	{
-		extract( shortcode_atts( array(
+		shortcode_atts( array(
 			'selected' => '',
 			'posts_per_page' => -1,
 			'show_option_none' => '- Select Content Block -',
 			'name'=> 'szbl-content-blocks-dropdown',
 			'id' => 'szbl-content-blocks-dropdown'
-		), $dropdown_args ) );
-		
-		if ( !$get_args )
-			$get_args = $dropdown_args;
+		), $dropdown_args );
 		
 		$posts = $this->get_content_blocks( $get_args );
 		
-		echo $this->render( 'dropdown.php' );
+		$render_args = $dropdown_args;
+		$render_args['posts'] = $posts;
+		
+		$this->render( 'dropdown.php', true, $render_args );
 	}
 	
 	public function shortcode_content_block( $atts, $content = '' )
@@ -348,15 +349,15 @@ Szbl_Content_Blocks::init();
 function szbl_get_content_block( $args = array() )
 {
 	$args['posts_per_page'] = 1;
-	return Szbl_Content_Blocks::getInstance()->get_content_blocks( $args, true );
+	return Szbl_Content_Blocks::init()->get_content_blocks( $args, true );
 }
 
 function szbl_get_content_blocks( $args = array() )
 {
-	return Szbl_Content_Blocks::getInstance()->get_content_blocks( $args );
+	return Szbl_Content_Blocks::init()->get_content_blocks( $args );
 }
 
-function szbl_get_content_blocks_dropdown( $dropdown_args, $get_args = array() )
+function szbl_content_blocks_dropdown( $dropdown_args, $get_args = array() )
 {
-	return Szbl_Content_Blocks::getInstance()->get_content_blocks_dropdown($dropdown_args, $get_args );
+	return Szbl_Content_Blocks::init()->get_content_blocks_dropdown( $dropdown_args, $get_args );
 }
