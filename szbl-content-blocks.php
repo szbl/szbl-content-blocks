@@ -66,6 +66,10 @@ class Szbl_Content_Blocks
 		if ( !$path )
 			return false;
 		
+		$local_template = get_template_directory() . DIRECTORY_SEPARATOR . 'szbl' . DIRECTORY_SEPARATOR . basename( $path );
+		if ( file_exists( $local_template ) )
+			$path = $local_template;
+
 		if ( is_array( $local_vars ) && count( $local_vars ) > 0 )
 			extract( $local_vars );
 		
@@ -276,7 +280,7 @@ class Szbl_Content_Blocks
 		if ( !$block->ID )
 			return;
 		
-		return $this->render( 'shortcode-content-block.php', false, array(
+		return $this->render( 'szbl_content_block.php', false, array(
 			'block' => $block,
 			'title' => $title,
 			'image' => $image,
@@ -333,7 +337,7 @@ class Szbl_Content_Blocks
 		if ( count( $blocks ) <= 0 )
 			return;
 		
-		return $this->render( 'shortcode-content-blocks.php', false, array(
+		return $this->render( 'szbl_content_blocks.php', false, array(
 			'blocks' => $blocks,
 			'title' => $title,
 			'image' => $image,
