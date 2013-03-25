@@ -33,7 +33,7 @@ We often use Content Blocks at Sizeable Interactive for things that don't requir
 post type, or for small content that we aren't quite sure where to place, but that should be fully
 managed by site admins.
 
-We've used the in the past for:
+We've used Content Blocks for:
 
 * Slides (for custom home page sliders)
 * Callout/Feature boxes on home pages
