@@ -348,7 +348,10 @@ class Szbl_Content_Blocks
 	}
 	
 }
+
 Szbl_Content_Blocks::init();
+
+include dirname( __FILE__ ) . DIRECTORY_SEPARATOR . 'szbl-content-blocks-widget.php';
 
 function szbl_get_content_block( $args = array() )
 {
